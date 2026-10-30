@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Smart Expense Tracker</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f1f5f9;
+      margin: 0;
+      padding: 20px;
+      color: #1e293b;
+    }
+    .container {
+      max-width: 600px;
+      margin: auto;
+    }
+    h1 { color: #166534; }
+    .card {
+      background: white;
+      padding: 18px;
+      border-radius: 12px;
+      margin-bottom: 16px;
+      box-shadow: 0 2px 8px #0001;
+    }
+    .balance {
+      background: #166534;
+      color: white;
+      padding: 20px;
+      border-radius: 12px;
+      font-size: 22px;
+    }
+    input, select, button {
+      box-sizing: border-box;
+      width: 100%;
+      padding: 12px;
+      margin-top: 10px;
+      border-radius: 8px;
+      border: 1px solid #cbd5e1;
+      font-size: 16px;
+    }
+    button {
+  background: linear-gradient(135deg, #16a34a, #166534);
+  color: white;
+  border: none;
+  font-weight: bold;
+  border-radius: 12px;
+  padding: 13px;
+  margin-top: 10px;
+  box-shadow: 0 4px 8px rgba(22, 101, 52, 0.2);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+button:hover {
+  background: #14532d;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(22, 101, 52, 0.3);
+}
+
+button:active {
+  transform: scale(0.97);
+}
+    li {
+      padding: 10px 0;
+      border-bottom: 1px solid #eee;
+      overflow-wrap: anywhere;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>My Expense Tracker</h1>
+
+    <div class="balance">
+      Total Expenses: KSh <span id="total">0.00</span>
+    </div>
+
+    <div class="card">
+      <h2>Monthly Budget</h2>
+      <input id="budget" type="number" min="0"
+        placeholder="Enter monthly budget in KSh">
+      <p>Amount Spent: KSh <span id="budgetSpent">0.00</span></p>
+      <p>Money Remaining: KSh <span id="remaining">0.00</span></p>
+      <button type="button" onclick="saveBudget()">Save Budget</button>
+      <p id="budgetWarning"></p>
+    </div>
+
+    <div class="card">
+      <h2>Add an Expense</h2>
+      <form id="expenseForm">
+        <input id="description"
+          placeholder="What did you spend on?" required>
+
+        <input id="amount" type="number"
+          min="0.01" step="0.01"
+          placeholder="Amount in KSh" required>
+
+        <select id="category">
+          <option>Food</option>
+          <option>Transport</option>
+          <option>Rent</option>
+          <option>Bills</option>
+          <option>Shopping</option>
+          <option>Other</option>
+        </select>
+
+        <input id="date" type="date" required>
+        <button type="submit">Add Expense</button>
+      </form>
+    </div>
+
+<div class="card">
+  <h2>Monthly Spending Report</h2>
+  <p>This Month's Spending: KSh <span id="monthlyTotal">0.00</span></p>
+</div>
+
+<div class="card">
+  <h2>Spending by Category</h2>
+  <ul id="categorySummary"></ul>
+</div>
+    
+<div class="card">
+  <h2>Spending Chart</h2>
+  <canvas id="spendingChart"
+    width="500" height="300"
+    style="width:100%; height:auto;">
+  </canvas>
+</div>
+
+<div class="card">
+  <h2>Expense History</h2>
+
+  <input
+    type="text"
+    id="searchExpense"
+    placeholder="Search expenses..."
+    oninput="renderExpenses()"
+  >
+
+  <button type="button" onclick="exportExpenses()">Export Expenses</button>
+
+  <ul id="expenses"></ul>
+</div>
+  </div>
+
+    <footer style="
+    text-align: center;
+    padding: 20px;
+    color: #64748b;
+    font-size: 14px;
+  ">
+    Smart Personal Expense Tracker
+    <br>
+    Version 1.0
+    <br>
+    Manage your money wisely.
+  </footer>
+
+  <script>
+    
+    const form = document.getElementById("expenseForm");
+    const list = document.getElementById("expenses");
+    const totalDisplay = document.getElementById("total");
+    const dateInput = document.getElementById("date");
+
+    const budgetInput = document.getElementById("budget");
+    const budgetSpent = document.getElementById("budgetSpent");
+    const remainingDisplay = document.getElementById("remaining");
+    
+    let monthlyBudget = Number(localStorage.getItem("monthlyBudget") || 0);
+
+    budgetInput.value = monthlyBudget || "";
+
+    dateInput.value = new Date().toISOString().slice(0, 10);
+
+    let expenses = JSON.parse(
+      localStorage.getItem("expenses") || "[]"
+    );
+
+    
+function saveBudget() {
+  const amount = Number(budgetInput.value);
+
+  if (budgetInput.value === "" || amount <= 0 || !Number.isFinite(amount)) {
+    alert("Please enter a valid budget.");
+    return;
+  }
+
+  monthlyBudget = amount;
+  localStorage.setItem("monthlyBudget", monthlyBudget);
+  renderExpenses();
+}
+
+function updateBudget() {
+  
+const currentMonth = new Date().getMonth();
+const currentYear = new Date().getFullYear();
+
+const spent = expenses.reduce(function(sum, expense) {
+  const expenseDate = new Date(expense.date + "T12:00:00");
+
+  if (
+    expenseDate.getMonth() === currentMonth &&
+    expenseDate.getFullYear() === currentYear
+  ) {
+    return sum + Number(expense.amount);
+  }
+
+  return sum;
+}, 0);
+  budgetSpent.textContent = spent.toFixed(2);
+  remainingDisplay.textContent = (monthlyBudget - spent).toFixed(2);
+  
+const warning = document.getElementById("budgetWarning");
+
+if (monthlyBudget <= 0) {
+  warning.textContent = "";
+} else if (spent >= monthlyBudget) {
+  warning.textContent = "Warning: You have reached or exceeded your budget!";
+} else if (spent >= monthlyBudget * 0.8) {
+  warning.textContent = "Careful: You have used 80% or more of your budget.";
+} else {
+  warning.textContent = "You are within your budget.";
+}
+
+}
+
+function renderExpenses() {
+  list.replaceChildren();
+
+  const searchText = document
+  .getElementById("searchExpense")
+  .value.toLowerCase()
+  .trim();
+  
+  let total = 0;
+  const categoryTotals = {};
+
+  const currentMonth = new Date().getMonth();
+  const currentYear = new Date().getFullYear();
+  let monthlyTotal = 0;
+
+  expenses.forEach(function(expense) {
+   const matchesSearch =
+  expense.description.toLowerCase().includes(searchText) ||
+  expense.category.toLowerCase().includes(searchText);
+
+if (!matchesSearch) return; 
+    
+    const amount = Number(expense.amount);
+
+    total += amount;
+
+    if (!categoryTotals[expense.category]) {
+      categoryTotals[expense.category] = 0;
+    }
+
+    categoryTotals[expense.category] += amount;
+
+    const expenseDate = new Date(expense.date + "T12:00:00");
+
+    if (
+      expenseDate.getMonth() === currentMonth &&
+      expenseDate.getFullYear() === currentYear
+    ) {
+      monthlyTotal += amount;
+    }
+
+    const item = document.createElement("li");
+
+    item.textContent =
+      expense.date + " — " +
+      expense.description + " — " +
+      expense.category + " — KSh " +
+      amount.toFixed(2);
+
+    const editButton = document.createElement("button");
+    editButton.textContent = "Edit";
+    editButton.type = "button";
+
+    editButton.onclick = function() {
+      const newDescription = prompt(
+        "Edit description:",
+        expense.description
+      );
+
+      if (newDescription === null) return;
+
+      const newAmountText = prompt(
+        "Edit amount in KSh:",
+        expense.amount
+      );
+
+      if (newAmountText === null) return;
+
+      const newAmount = Number(newAmountText);
+
+      if (
+        !newDescription.trim() ||
+        !Number.isFinite(newAmount) ||
+        newAmount <= 0
+      ) {
+        alert("Please enter a valid description and amount.");
+        return;
+      }
+
+      expense.description = newDescription.trim();
+      expense.amount = newAmount;
+
+      localStorage.setItem(
+        "expenses",
+        JSON.stringify(expenses)
+      );
+      
+
+      renderExpenses();
+    };
+
+    const deleteButton = document.createElement("button");
+    deleteButton.textContent = "Delete";
+    deleteButton.type = "button";
+
+    deleteButton.onclick = function() {
+      if (!confirm("Delete this expense?")) return;
+
+      expenses = expenses.filter(function(e) {
+        return e !== expense;
+      });
+
+      localStorage.setItem(
+        "expenses",
+        JSON.stringify(expenses)
+      );
+
+      renderExpenses();
+    };
+
+    item.appendChild(editButton);
+    item.appendChild(deleteButton);
+    list.appendChild(item);
+  });
+
+  totalDisplay.textContent = total.toFixed(2);
+
+  document.getElementById("monthlyTotal").textContent =
+    monthlyTotal.toFixed(2);
+
+  const categorySummary =
+    document.getElementById("categorySummary");
+
+  categorySummary.replaceChildren();
+
+  Object.keys(categoryTotals).forEach(function(category) {
+    const item = document.createElement("li");
+
+    item.textContent =
+      category + ": KSh " +
+      categoryTotals[category].toFixed(2);
+
+    categorySummary.appendChild(item);
+  });
+
+  updateBudget();
+ drawSpendingChart(); 
+}
+    
+function drawSpendingChart() {
+  const canvas = document.getElementById("spendingChart");
+  const ctx = canvas.getContext("2d");
+
+  const categories = [
+    "Food", "Transport", "Rent",
+    "Bills", "Shopping", "Other"
+  ];
+
+  const totals = categories.map(function(category) {
+    return expenses.reduce(function(sum, expense) {
+      if (expense.category === category) {
+        return sum + Number(expense.amount);
+      }
+      return sum;
+    }, 0);
+  });
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  const maxTotal = Math.max(...totals, 1);
+  const left = 90;
+  const chartWidth = 370;
+  const barHeight = 25;
+  const gap = 20;
+
+  ctx.font = "14px Arial";
+  ctx.textBaseline = "middle";
+
+  categories.forEach(function(category, i) {
+    const y = 20 + i * (barHeight + gap);
+    const barWidth = (totals[i] / maxTotal) * chartWidth;
+
+    ctx.fillStyle = "#334155";
+    ctx.textAlign = "right";
+    ctx.fillText(category, left - 10, y + barHeight / 2);
+
+    ctx.fillStyle = "#16a34a";
+    ctx.fillRect(left, y, barWidth, barHeight);
+
+    ctx.fillStyle = "#1e293b";
+    ctx.textAlign = "left";
+    ctx.fillText(
+      totals[i].toFixed(0),
+      left + barWidth + 5,
+      y + barHeight / 2
+    );
+  });
+}
+
+
+
+    form.addEventListener("submit", function(event) {
+      event.preventDefault();
+
+      const description =
+        document.getElementById("description").value.trim();
+      const amount =
+        Number(document.getElementById("amount").value);
+      const category =
+        document.getElementById("category").value;
+      const date = dateInput.value;
+
+      if (!description || amount <= 0 || !date) {
+        alert("Please enter valid expense details.");
+        return;
+      }
+
+      expenses.push({
+        description: description,
+        amount: amount,
+        category: category,
+        date: date
+      });
+
+      localStorage.setItem(
+        "expenses",
+        JSON.stringify(expenses)
+      );
+
+      form.reset();
+      dateInput.value = new Date().toISOString().slice(0, 10);
+     
+    renderExpenses();
+    });
+
+    function exportExpenses() {
+  const headers = ["Date", "Description", "Category", "Amount"];
+
+  const rows = expenses.map(function(expense) {
+    return [
+      expense.date,
+      expense.description,
+      expense.category,
+      expense.amount.toFixed(2)
+    ];
+  });
+
+  function escapeCSV(value) {
+    return '"' + String(value).replace(/"/g, '""') + '"';
+  }
+
+  const csv = [headers, ...rows]
+    .map(function(row) {
+      return row.map(escapeCSV).join(",");
+    })
+    .join("\r\n");
+
+  const blob = new Blob(["\uFEFF" + csv], {
+    type: "text/csv;charset=utf-8;"
+  });
+
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "my-expenses.csv";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+
+  setTimeout(function() {
+    URL.revokeObjectURL(url);
+  }, 1000);
+}
+   
+    renderExpenses();
+ 
+  </script>
+</body>
+</html>
